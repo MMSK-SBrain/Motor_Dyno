@@ -22,49 +22,49 @@ const predefinedMotors: MotorConfig[] = [
     id: 'bldc-2000w-48v',
     name: 'BLDC 2000W 48V',
     type: 'BLDC',
-    resistance: 0.05,     // 50 mΩ - realistic for 2kW motor
-    inductance: 0.0003,   // 0.3 mH
-    ke: 0.032,           // V·s/rad for 48V at 1500 rad/s
-    kt: 0.032,           // Nm/A (equals Ke in SI)
+    resistance: 0.05,     // Lower resistance for better efficiency
+    inductance: 0.001,    // Increased inductance for stability (1mH)
+    ke: 0.142,           // Ke in V·s/rad for 2000W motor (calculated for proper power)
+    kt: 0.142,           // Kt = Ke for SI units (6.37 Nm / 45A = 0.142)
     maxRpm: 4000,
-    maxCurrent: 45,      // 2000W / 48V ≈ 42A + margin
+    maxCurrent: 45,      // 2000W / 48V ≈ 42A
     maxPower: 2000,
     ratedVoltage: 48,
     poles: 8,
-    inertia: 0.002,
-    damping: 0.005
+    inertia: 0.002,      // Slightly higher inertia
+    damping: 0.005       // Lower damping
   },
   {
     id: 'bldc-5000w-96v',
     name: 'BLDC 5000W 96V',
     type: 'BLDC',
-    resistance: 0.03,     // Lower resistance for higher power
-    inductance: 0.0002,   
-    ke: 0.064,           // V·s/rad for 96V at 1500 rad/s
-    kt: 0.064,           // Nm/A
-    maxRpm: 6000,
-    maxCurrent: 55,      // 5000W / 96V ≈ 52A + margin
+    resistance: 0.025,    // Lower resistance for higher power (scaled from 2kW)
+    inductance: 0.0012,   // Scaled inductance for larger motor (1.2mH)
+    ke: 0.284,           // Scaled from 2kW motor: 0.142 * (96V/48V) = 0.284
+    kt: 0.284,           // Kt = Ke for SI units
+    maxRpm: 5000,        // Higher RPM capability for bigger motor
+    maxCurrent: 60,      // 5000W / 96V ≈ 52A + margin
     maxPower: 5000,
     ratedVoltage: 96,
-    poles: 10,
-    inertia: 0.004,      // Higher inertia for bigger motor
-    damping: 0.008
+    poles: 8,            // Same pole count for consistency
+    inertia: 0.005,      // Higher inertia for bigger motor (2.5x)
+    damping: 0.008       // Higher damping for bigger motor
   },
   {
     id: 'bldc-1000w-24v',
     name: 'BLDC 1000W 24V',
     type: 'BLDC',
     resistance: 0.08,     // Higher resistance for smaller motor
-    inductance: 0.0004,
-    ke: 0.016,           // V·s/rad for 24V at 1500 rad/s  
-    kt: 0.016,           // Nm/A
-    maxRpm: 3000,
-    maxCurrent: 45,      // 1000W / 24V ≈ 42A + margin
+    inductance: 0.0008,   // Scaled inductance for smaller motor (0.8mH)
+    ke: 0.071,           // Scaled from 2kW motor: 0.142 * (24V/48V) = 0.071
+    kt: 0.071,           // Kt = Ke for SI units
+    maxRpm: 3500,        // Lower RPM for smaller motor
+    maxCurrent: 50,      // 1000W / 24V ≈ 42A + margin
     maxPower: 1000,
     ratedVoltage: 24,
-    poles: 6,
-    inertia: 0.001,      // Lower inertia for smaller motor
-    damping: 0.004
+    poles: 8,            // Same pole count for consistency
+    inertia: 0.001,      // Lower inertia for smaller motor (0.5x)
+    damping: 0.003       // Lower damping for smaller motor
   }
 ];
 
@@ -109,6 +109,20 @@ const MotorSelector: React.FC<MotorSelectorProps> = ({ onMotorSelect, currentMot
   };
 
   const handleLoadMotor = () => {
+    // Validate motor configuration before loading
+    const motor = selectedMotor;
+    console.log(`Loading motor: ${motor.name}`);
+    console.log(`Power density: ${motor.maxPower/1000}kW, ${motor.ratedVoltage}V`);
+    console.log(`Estimated torque at rated current: ${(motor.kt * motor.maxCurrent).toFixed(1)}Nm`);
+    console.log(`Power at max current: ${(motor.ratedVoltage * motor.maxCurrent).toFixed(0)}W`);
+    
+    // Basic validation
+    const calculatedPower = motor.ratedVoltage * motor.maxCurrent;
+    const powerRatio = calculatedPower / motor.maxPower;
+    if (powerRatio < 0.8 || powerRatio > 1.5) {
+      console.warn(`Power mismatch: Calculated ${calculatedPower}W vs Rated ${motor.maxPower}W (ratio: ${powerRatio.toFixed(2)})`);
+    }
+    
     onMotorSelect(selectedMotor);
   };
 

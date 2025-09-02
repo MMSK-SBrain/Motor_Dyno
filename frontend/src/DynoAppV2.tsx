@@ -340,6 +340,8 @@ const DynoAppV2: React.FC = () => {
   }), []);
 
   useEffect(() => {
+    console.log(`Initializing motor: ${motorConfig.name} (${motorConfig.id})`);
+    console.log(`Default motor specs: ${motorConfig.maxPower}W, ${motorConfig.ratedVoltage}V, ${motorConfig.maxCurrent}A, ${motorConfig.maxRpm}RPM`);
     motorRef.current = new BLDCMotorSimulation(motorConfig);
   }, [motorConfig]);
 
@@ -720,6 +722,9 @@ const DynoAppV2: React.FC = () => {
   }, [simulate]);
 
   const handleMotorSelect = (motor: MotorConfig) => {
+    console.log(`Motor selected: ${motor.name} (${motor.id})`);
+    console.log(`Motor specs: ${motor.maxPower}W, ${motor.ratedVoltage}V, ${motor.maxCurrent}A, ${motor.maxRpm}RPM`);
+    console.log(`Motor constants: Ke=${motor.ke}, Kt=${motor.kt}, R=${motor.resistance}Ω, L=${motor.inductance*1000}mH`);
     setMotorConfig(motor);
     motorRef.current = new BLDCMotorSimulation(motor);
   };
