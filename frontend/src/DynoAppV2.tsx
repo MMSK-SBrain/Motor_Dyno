@@ -505,10 +505,22 @@ const DynoAppV2: React.FC = () => {
           const targetTorque = kp_speed * speedError + ki_speed * speedIntegralRef.current + kd_speed * speedErrorDerivative;
           targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent, Math.min(motorConfig.maxCurrent, targetTorque / motorConfig.kt));
         } else {
-          // Within mini-deadband: gentle feedforward only
-          const currentSpeedRad = motorRef.current ? motorRef.current['speed'] : 0;
-          const backEmfCurrent = (motorConfig.ke * currentSpeedRad) / motorConfig.resistance;
-          targetCurrentFromSpeed = Math.max(0, Math.min(motorConfig.maxCurrent * 0.2, backEmfCurrent * 1.1));
+          // Within mini-deadband: gentle feedforward based on target speed
+          const targetBackEmfCurrent = (motorConfig.ke * targetSpeedRad) / motorConfig.resistance;
+          
+          // Allow both positive and negative current for proper speed control
+          // Scale down the feedforward to be gentle but preserve direction
+          const feedforwardScale = 0.3; // 30% of calculated feedforward for gentle control
+          targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent * 0.2, 
+                                           Math.min(motorConfig.maxCurrent * 0.2, 
+                                                   targetBackEmfCurrent * feedforwardScale));
+          
+          // If we're significantly above target, apply gentle braking
+          if (speedError < 0 && Math.abs(speedError) > 0.1) {
+            const brakingCurrent = speedError * 0.001; // Very gentle proportional braking
+            targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent * 0.1, 
+                                             Math.min(0, brakingCurrent));
+          }
           
           // Slowly decay integral term
           speedIntegralRef.current *= 0.95;
