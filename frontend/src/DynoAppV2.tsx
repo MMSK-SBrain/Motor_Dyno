@@ -90,6 +90,7 @@ class BLDCMotorSimulation {
   private damping: number;
   private maxCurrent: number;
   private maxRpm: number;
+  private ratedVoltage: number = 48;
   private speed: number = 0;
   private current: number = 0;
   private temperature: number = 25;
@@ -106,6 +107,7 @@ class BLDCMotorSimulation {
     this.damping = config.damping;
     this.maxCurrent = config.maxCurrent;
     this.maxRpm = config.maxRpm;
+    this.ratedVoltage = config.ratedVoltage;
     this.poles = config.poles || 8; // Default to 8 poles if not specified
   }
 
@@ -195,8 +197,8 @@ class BLDCMotorSimulation {
     const electricalPower = Math.abs(voltage * this.current); // Electrical power input (Watts)
     const efficiency = electricalPower > 0.1 ? (mechanicalPower / electricalPower) * 100 : 0;
     
-    // Return DC bus voltage (48V) instead of PWM modulated voltage for realistic display
-    const dcBusVoltage = 48.0; // What you'd actually measure on motor terminals
+    // Return actual DC bus voltage based on motor rating for realistic display
+    const dcBusVoltage = this.ratedVoltage; // What you'd actually measure on motor terminals
     
     return {
       speed: this.speed,
@@ -1192,12 +1194,12 @@ const DynoAppV2: React.FC = () => {
               />
               <AnalogDial
                 value={motorData.voltage}
-                max={60}
+                max={motorConfig.ratedVoltage * 1.2}
                 min={0}
                 unit="V"
                 label="Voltage"
-                warningZone={50}
-                dangerZone={55}
+                warningZone={motorConfig.ratedVoltage * 0.9}
+                dangerZone={motorConfig.ratedVoltage * 1.1}
                 size={150}
                 showMarkings={false}
               />
