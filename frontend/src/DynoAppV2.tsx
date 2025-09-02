@@ -480,67 +480,44 @@ const DynoAppV2: React.FC = () => {
         speedIntegralRef.current = 0; // Reset when stopped
         currentIntegralRef.current = 0;
       } else {
-        // Speed controller generates torque/current reference (PID controller)
-        // Much more conservative gains for stability
-        const kp_speed = 0.8; // Reduced proportional gain for stability
-        const ki_speed = 0.5; // Reduced integral gain to prevent oscillations
-        const kd_speed = 0.01; // Very small derivative gain
+        // Cascaded Speed Control: Speed → Current → PWM → Torque
+        // Speed controller generates current reference (PID controller)
+        const kp_speed = 1.5; // Moderate proportional gain
+        const ki_speed = 0.8; // Moderate integral gain
+        const kd_speed = 0.02; // Small derivative gain
         
-        // Only apply PID correction if speed error is significant (mini-deadband)
-        const speedErrorRpm = Math.abs(speedError * 30 / Math.PI);
+        // NO DEADBAND - Allow PID to work at all times for precise control
         let targetCurrentFromSpeed = 0;
         
-        if (speedErrorRpm > 20) { // 20 RPM mini-deadband for stability
-          // PID controller for speed loop (generates current reference)
-          // Update integral term properly
-          if (!speedIntegralRef.current) speedIntegralRef.current = 0;
-          speedIntegralRef.current += speedError * 0.01; // dt = 10ms
-          // Anti-windup: much tighter integral limits
-          speedIntegralRef.current = Math.max(-3.0, Math.min(3.0, speedIntegralRef.current));
-          
-          // Derivative term with filtering to reduce noise
-          const speedErrorDerivative = (speedError - lastSpeedErrorRef.current) / 0.01;
-          lastSpeedErrorRef.current = speedError;
-          
-          const targetTorque = kp_speed * speedError + ki_speed * speedIntegralRef.current + kd_speed * speedErrorDerivative;
-          targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent, Math.min(motorConfig.maxCurrent, targetTorque / motorConfig.kt));
-        } else {
-          // Within mini-deadband: gentle feedforward based on target speed
-          const targetBackEmfCurrent = (motorConfig.ke * targetSpeedRad) / motorConfig.resistance;
-          
-          // Allow both positive and negative current for proper speed control
-          // Scale down the feedforward to be gentle but preserve direction
-          const feedforwardScale = 0.3; // 30% of calculated feedforward for gentle control
-          targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent * 0.2, 
-                                           Math.min(motorConfig.maxCurrent * 0.2, 
-                                                   targetBackEmfCurrent * feedforwardScale));
-          
-          // If we're significantly above target, apply gentle braking
-          if (speedError < 0 && Math.abs(speedError) > 0.1) {
-            const brakingCurrent = speedError * 0.001; // Very gentle proportional braking
-            targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent * 0.1, 
-                                             Math.min(0, brakingCurrent));
-          }
-          
-          // Slowly decay integral term
-          speedIntegralRef.current *= 0.95;
-          lastSpeedErrorRef.current = speedError;
-        }
+        // PID controller for speed loop (generates current reference)
+        if (!speedIntegralRef.current) speedIntegralRef.current = 0;
+        speedIntegralRef.current += speedError * 0.01; // dt = 10ms
+        // Anti-windup: reasonable integral limits
+        speedIntegralRef.current = Math.max(-5.0, Math.min(5.0, speedIntegralRef.current));
         
-        // Current controller (inner loop) - high bandwidth
+        // Derivative term with filtering to reduce noise
+        const speedErrorDerivative = (speedError - lastSpeedErrorRef.current) / 0.01;
+        lastSpeedErrorRef.current = speedError;
+        
+        // Calculate target torque from PID
+        const targetTorque = kp_speed * speedError + ki_speed * speedIntegralRef.current + kd_speed * speedErrorDerivative;
+        
+        // Convert torque to current reference
+        targetCurrentFromSpeed = Math.max(-motorConfig.maxCurrent, Math.min(motorConfig.maxCurrent, targetTorque / motorConfig.kt));
+        
+        // Current controller (inner loop) - converts current reference to voltage
         const actualCurrent = motorRef.current ? motorRef.current['current'] : 0;
         const currentError = targetCurrentFromSpeed - actualCurrent;
         
         // Current controller with PWM voltage modulation
-        // Much more conservative current loop gains
-        const kp_current = 0.3; // Reduced current loop proportional gain
-        const ki_current = 0.8; // Reduced current loop integral gain 
+        const kp_current = 0.8; // Current loop proportional gain
+        const ki_current = 1.2; // Current loop integral gain 
         
-        // Update current integral with much tighter limits
+        // Update current integral
         if (!currentIntegralRef.current) currentIntegralRef.current = 0;
         currentIntegralRef.current += currentError * 0.01; // dt = 10ms
-        // Anti-windup: much tighter integral limits to prevent oscillations
-        currentIntegralRef.current = Math.max(-2.0, Math.min(2.0, currentIntegralRef.current));
+        // Anti-windup for current loop
+        currentIntegralRef.current = Math.max(-3.0, Math.min(3.0, currentIntegralRef.current));
         
         // Current controller generates voltage reference
         const currentSpeedRad = motorRef.current ? motorRef.current['speed'] : 0;
@@ -555,10 +532,10 @@ const DynoAppV2: React.FC = () => {
         // PWM effective voltage applied to motor
         voltage = dutyCycle * motorConfig.ratedVoltage;
         
-        // Debug log for PWM voltage control (reduced frequency)
+        // Debug log for cascaded control (reduced frequency)
         if (currentTargetSpeed > 0 && Math.random() < 0.02) { // 2% logging frequency
-          const pidStatus = speedErrorRpm > 20 ? 'ACTIVE' : 'STABLE';
-          console.log(`PWM [${pidStatus}]: Target=${currentTargetSpeed}rpm, SpeedErr=${speedErrorRpm.toFixed(0)}rpm, TargetI=${targetCurrentFromSpeed.toFixed(1)}A, ActualI=${actualCurrent.toFixed(1)}A, V=${voltage.toFixed(1)}V`);
+          const speedErrorRpm = speedError * 30 / Math.PI;
+          console.log(`CASCADE: Target=${currentTargetSpeed}rpm, SpeedErr=${speedErrorRpm.toFixed(0)}rpm, TargetI=${targetCurrentFromSpeed.toFixed(1)}A, ActualI=${actualCurrent.toFixed(1)}A, V=${voltage.toFixed(1)}V`);
         }
       }
     } else if (controlMode === 'current' && cascadedEnabled) {
