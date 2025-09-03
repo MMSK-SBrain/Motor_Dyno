@@ -29,6 +29,7 @@ interface TestControlProps {
   onSpeedControl: (targetRpm: number) => void;
   onLoadControl: (targetLoad: number) => void;
   isConnected: boolean;
+  disabled?: boolean;
 }
 
 const TestControl: React.FC<TestControlProps> = ({ 

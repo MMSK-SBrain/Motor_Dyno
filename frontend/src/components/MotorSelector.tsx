@@ -71,11 +71,13 @@ const predefinedMotors: MotorConfig[] = [
 interface MotorSelectorProps {
   onMotorSelect: (motor: MotorConfig) => void;
   currentMotor?: MotorConfig;
+  availableMotors?: MotorConfig[];
 }
 
-const MotorSelector: React.FC<MotorSelectorProps> = ({ onMotorSelect, currentMotor }) => {
+const MotorSelector: React.FC<MotorSelectorProps> = ({ onMotorSelect, currentMotor, availableMotors }) => {
+  const motorsToUse = availableMotors || predefinedMotors;
   const [selectedMotor, setSelectedMotor] = useState<MotorConfig>(
-    currentMotor || predefinedMotors[0]
+    currentMotor || motorsToUse[0]
   );
   const [showCustom, setShowCustom] = useState(false);
   const [customMotor, setCustomMotor] = useState<MotorConfig>({
@@ -220,7 +222,7 @@ const MotorSelector: React.FC<MotorSelectorProps> = ({ onMotorSelect, currentMot
         value={showCustom ? 'custom' : selectedMotor.id}
         onChange={(e) => handleMotorChange(e.target.value)}
       >
-        {predefinedMotors.map(motor => (
+        {motorsToUse.map(motor => (
           <option key={motor.id} value={motor.id}>{motor.name}</option>
         ))}
         <option value="custom">Custom Motor...</option>

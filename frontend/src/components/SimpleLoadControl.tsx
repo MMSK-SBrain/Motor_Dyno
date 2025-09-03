@@ -5,9 +5,10 @@ interface SimpleLoadControlProps {
   onLoadChange: (load: LoadProfile) => void;
   currentLoad: number;
   maxLoad: number;
+  disabled?: boolean;
 }
 
-const SimpleLoadControl: React.FC<SimpleLoadControlProps> = ({ onLoadChange, currentLoad, maxLoad }) => {
+const SimpleLoadControl: React.FC<SimpleLoadControlProps> = ({ onLoadChange, currentLoad, maxLoad, disabled = false }) => {
   const [targetLoad, setTargetLoad] = useState(0);
 
   const handleApplyLoad = () => {
@@ -104,11 +105,13 @@ const SimpleLoadControl: React.FC<SimpleLoadControlProps> = ({ onLoadChange, cur
         value={targetLoad}
         onChange={(e) => setTargetLoad(parseFloat(e.target.value) || 0)}
         placeholder="Target Load (Nm)"
+        disabled={disabled}
       />
 
       <button 
         style={styles.button}
         onClick={handleApplyLoad}
+        disabled={disabled}
       >
         Apply Load
       </button>
